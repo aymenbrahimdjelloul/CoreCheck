@@ -49,16 +49,16 @@ License : MIT
 using namespace std;
 
 // DECLARE GLOBAL VARIABLES
-string AUTHOR = "Aymen Brahim Djelloul";
-string VERSION = "1.0";
+const string AUTHOR = "Aymen Brahim Djelloul";
+const string VERSION = "1.0";
 
 // DECLARE CPU INFO VARIABLE TO USE IT WITH INTRIN
-int CPUINFO[4];
+const int CPUINFO[4];
 // Define a CPU default Multiplier value
-int CPU_MULTIPLIER = 38;
+const int CPU_MULTIPLIER = 38;
 
 // DECLARE SYSTEM INFO VARIABLES TO GET SYS INFO
-SYSTEM_INFO sysInfo;
+const SYSTEM_INFO sysInfo;
 
 // Create Processor Class that contains methods to get cpu info
 class Processor {
