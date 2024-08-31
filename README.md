@@ -11,7 +11,13 @@
 - [x] straight-forward and Simple to use !
 - [x] Fast and Clean C++ code
 - [x] Cross-platorm (support windows & Linux )
+- [x] with Simple Command-line interface
 
 # How Its Work ?
 
   test
+
+# License
+~~~
+
+~~~
