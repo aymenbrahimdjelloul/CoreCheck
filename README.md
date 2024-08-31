@@ -8,8 +8,9 @@
   information with minimal overhead.
 
 # Features
-- [x] Simple to use !
-
+- [x] straight-forward and Simple to use !
+- [x] Fast and Clean C++ code
+- [x] Cross-platorm (support windows & Linux )
 
 # How Its Work ?
 
