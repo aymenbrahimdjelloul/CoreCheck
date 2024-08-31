@@ -6,3 +6,7 @@
   system architecture, processor details, and more. Ideal for system administrators,
   developers, and power users, CoreCheck simplifies the process of gathering critical system
   information with minimal overhead.
+
+# How Its Work ?
+
+  test
