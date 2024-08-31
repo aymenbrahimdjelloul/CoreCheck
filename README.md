@@ -8,7 +8,7 @@
   information with minimal overhead.
 
 # Features
-![x] Simple to use !
+- [x] Simple to use !
 
 
 # How Its Work ?
