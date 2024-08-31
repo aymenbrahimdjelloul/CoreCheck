@@ -7,6 +7,10 @@
   developers, and power users, CoreCheck simplifies the process of gathering critical system
   information with minimal overhead.
 
+# Features
+![x] Simple to use !
+
+
 # How Its Work ?
 
   test
