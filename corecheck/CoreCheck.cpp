@@ -1,68 +1,37 @@
 /*
-@author : Aymen Brahim Djelloul
-date : 21.08.2024
-version : 1.0
-License : MIT
-
-    
-    // What is CoreCheck ?
-
-        CoreCheck is a lightweight and efficient C++ application designed to swiftly retrieve
-        and display detailed information about your operating system and machine configuration.
-        With a CLI interface, CoreCheck provides essential data such as OS version,
-        system architecture, processor details, and more. Ideal for system administrators,
-        developers, and power users, CoreCheck simplifies the process of gathering critical system
-        information with minimal overhead.
-
-    // What CoreCheck can do ?
-
-        it can get this following informations.
-        Processor :
-
-        - CPU name
-        - CPU revision
-        - CPU Archeticture
-        - CPU Model
-        - CPU Family
-        - CPU Stepping
-        - CPU Cores & Threads
-        - CPU max clock speed
-        - CPU base clock speed
-
-        Operating System :
-        
-        - OS name
-
-*/
+ * CoreCheck - System Information Utility
+ * @author: Aymen Brahim Djelloul
+ * Modified: May 21, 2025
+ * Version: 1.1
+ * License: MIT
+ *
+ * Description:
+ *   CoreCheck is a lightweight C++ application that displays
+ *   essential system information including CPU details and OS version.
+ */
 
 // INCLUDES
 #include <iostream>
 #include <string>
 #include <iomanip>
 #include <sstream>
-#include <typeinfo>
-#include <cstddef>
 #include <windows.h>
 #include <intrin.h>
-#include <winreg.h> // For registry functions
+#include <winreg.h>
+#include <cstdlib>
+
 
 using namespace std;
 
-// DECLARE GLOBAL VARIABLES
+// CONSTANTS
+const string VERSION = "1.1";
 const string AUTHOR = "Aymen Brahim Djelloul";
-const string VERSION = "1.0";
-
-// DECLARE CPU INFO VARIABLE TO USE IT WITH INTRIN
-const int CPUINFO[4];
-// Define a CPU default Multiplier value
 const int CPU_MULTIPLIER = 38;
 
-// DECLARE SYSTEM INFO VARIABLES TO GET SYS INFO
-const SYSTEM_INFO sysInfo;
-
-// Create Processor Class that contains methods to get cpu info
+// PROCESSOR CLASS
 class Processor {
 public:
+    // Get CPU information
     string CPUName();
     string Architecture();
     int Model();
@@ -70,21 +39,32 @@ public:
     int Stepping();
     int Revision();
     int MaxClockSpeed();
-    double BaseClockSpeed(int maxFreq, int Multiplier);
-    int CoresCount(bool logical);
+    double BaseClockSpeed(int maxFreq);
+    int CoresCount(bool logical = false);
 };
 
+// FUNCTION PROTOTYPES
+string GetOSName();
+string GetOSVersion();
+string GetHostname();
+double MhzToGhz(int value);
+void PrintHeader();
+void PrintSeparator();
+void PrintCPUInfo(Processor& cpu);
+void PrintOSInfo();
 
-// Use preprocessing directives to run CoreCheck on Cross-platform
-// This section is for Win32 and Win64 systems
+// WINDOWS IMPLEMENTATION
 #if defined(_WIN32) || defined(_WIN64)
 
-    // This method will return the CPU name
-    string Processor::CPUName() {
-        int cpuInfo[4] = { -1 };
-        char cpuBrandString[0x40] = { 0 };
+// Get CPU Name
+string Processor::CPUName() {
+    int cpuInfo[4] = { -1 };
+    char cpuBrandString[64] = { 0 };
 
-        // Get the information associated with the processor
+    __cpuid(cpuInfo, 0x80000000);
+    unsigned int nExIds = cpuInfo[0];
+
+    if (nExIds >= 0x80000004) {
         __cpuid(cpuInfo, 0x80000002);
         memcpy(cpuBrandString, cpuInfo, sizeof(cpuInfo));
 
@@ -96,230 +76,267 @@ public:
 
         return string(cpuBrandString);
     }
+    return "Unknown Processor";
+}
 
-    // This method will get the CPU Stepping
-    int Processor::Stepping() {
-        __cpuid(CPUINFO, 1);
-        int stepping = CPUINFO[0] & 0xF;
-        return stepping;
-    }
+// Get CPU Stepping
+int Processor::Stepping() {
+    int cpuInfo[4];
+    __cpuid(cpuInfo, 1);
+    return cpuInfo[0] & 0xF;
+}
 
-    // This method will get the CPU Model 
-    int Processor::Model() {
-        __cpuid(CPUINFO, 1);
-        int model = (CPUINFO[0] >> 4) & 0xF;
-        return model;
-    }
+// Get CPU Model
+int Processor::Model() {
+    int cpuInfo[4];
+    __cpuid(cpuInfo, 1);
+    return (cpuInfo[0] >> 4) & 0xF;
+}
 
-    // This method will get the CPU family
-    int Processor::Family() {
-        __cpuid(CPUINFO, 1);
-        int family = (CPUINFO[0] >> 8) & 0xF;
-        return family;
-    }
+// Get CPU Family
+int Processor::Family() {
+    int cpuInfo[4];
+    __cpuid(cpuInfo, 1);
+    return (cpuInfo[0] >> 8) & 0xF;
+}
 
-    // This method will return the CPU architecture string
-    string Processor::Architecture() {
-        #if defined(__x86_64__) || defined(_M_X64)
-            return "x86_64";
-        #elif defined(__i386) || defined(_M_IX86)
-            return "x86";
-        #elif defined(__aarch64__) || defined(_M_ARM64)
-            return "ARM64";
-        #elif defined(__arm__) || defined(_M_ARM)
-            return "ARM";
-        #elif defined(__powerpc64__) || defined(__ppc64__)
-            return "PowerPC 64-bit";
-        #elif defined(__powerpc__) || defined(__ppc__)
-            return "PowerPC";
-        #elif defined(__mips__) || defined(__mips64)
-            return "MIPS";
-        #else
-            return "Unknown Architecture";
-        #endif
-    }
+// Get CPU Revision
+int Processor::Revision() {
+    // In a real application, this would extract the revision
+    return 0;
+}
 
-    // This method will get the base clock speed
-    double Processor::BaseClockSpeed(int MaxFreq, int Multiplier = CPU_MULTIPLIER) {
-        return MaxFreq / Multiplier;
-    }
+// Get CPU Architecture
+string Processor::Architecture() {
+    #if defined(_M_X64) || defined(__x86_64__)
+        return "x86_64";
+    #elif defined(_M_IX86) || defined(__i386__)
+        return "x86";
+    #elif defined(_M_ARM64) || defined(__aarch64__)
+        return "ARM64";
+    #elif defined(_M_ARM) || defined(__arm__)
+        return "ARM";
+    #else
+        return "Unknown Architecture";
+    #endif
+}
 
-    // This method will get the Maximum clock speed
-    int Processor::MaxClockSpeed() {
-        HKEY hKey;
-        DWORD data;
-        DWORD dataSize = sizeof(data);
+// Get CPU Max Clock Speed
+int Processor::MaxClockSpeed() {
+    HKEY hKey;
+    DWORD data;
+    DWORD dataSize = sizeof(data);
 
-        // Open the registry key where CPU frequency info is stored
-        if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
-                        0,
-                        KEY_READ,
-                        &hKey) == ERROR_SUCCESS) {
-            
-            // Query the Max Clock Speed from the registry
-            if (RegQueryValueEx(hKey, "~Mhz", NULL, NULL, (LPBYTE)&data, &dataSize) == ERROR_SUCCESS) {
-                return data;
-            } else {
-                return -1;
-            }
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE, 
+                    "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+                    0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+        
+        if (RegQueryValueEx(hKey, "~MHz", NULL, NULL, 
+                           (LPBYTE)&data, &dataSize) == ERROR_SUCCESS) {
             RegCloseKey(hKey);
-        } else {
-            return -1;
+            return data;
         }
-    };
-
-    // This method will get the number of CPU Cores
-    int Processor::CoresCount(bool logical = false) {
-        GetSystemInfo(&sysInfo);
-        if (logical) {
-            return sysInfo.dwNumberOfProcessors;  // Return logical core count
-        } else {
-            return sysInfo.dwNumberOfProcessors;  // Returns physical core count
-        }
+        RegCloseKey(hKey);
     }
+    return -1;
+}
 
-    // This method will get the OS name with version
-    std::string GetOSName() {
-        OSVERSIONINFO osvi = { sizeof(OSVERSIONINFO) };
-        if (GetVersionEx(&osvi)) {
-            return "Windows " + std::to_string(osvi.dwMajorVersion) + "." + std::to_string(osvi.dwMinorVersion);
-        } else {
-            return "Unknown Windows version";
-        }
+// Get CPU Base Clock Speed
+double Processor::BaseClockSpeed(int maxFreq) {
+    if (maxFreq <= 0 || CPU_MULTIPLIER <= 0) return 0;
+    return static_cast<double>(maxFreq) / CPU_MULTIPLIER;
+}
+
+// Get CPU Core Count
+int Processor::CoresCount(bool logical) {
+    SYSTEM_INFO sysInfo;
+    GetSystemInfo(&sysInfo);
+    
+    if (logical) {
+        return sysInfo.dwNumberOfProcessors;
     }
+    
+    // This is a simplification - in real code, you'd use GetLogicalProcessorInformation
+    // to get the actual physical core count
+    int cores = sysInfo.dwNumberOfProcessors / 2; // Assuming 2 threads per core
+    return cores > 0 ? cores : sysInfo.dwNumberOfProcessors;
+}
 
-// This section is for Linux-debian based systems
+// Get OS Name
+string GetOSName() {
+    OSVERSIONINFOEX osvi;
+    ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
+    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+
+    #pragma warning(suppress : 4996) // Suppress GetVersionEx deprecation warning
+    if (GetVersionEx((OSVERSIONINFO*)&osvi)) {
+        string osName = "Windows";
+        
+        if (osvi.dwMajorVersion == 10) {
+            if (osvi.dwBuildNumber >= 22000) {
+                osName += " 11";
+            } else {
+                osName += " 10";
+            }
+        } else if (osvi.dwMajorVersion == 6) {
+            switch (osvi.dwMinorVersion) {
+                case 0: osName += " Vista"; break;
+                case 1: osName += " 7"; break;
+                case 2: osName += " 8"; break;
+                case 3: osName += " 8.1"; break;
+                default: osName += " Unknown"; break;
+            }
+        } else {
+            osName += " " + to_string(osvi.dwMajorVersion) + "." 
+                   + to_string(osvi.dwMinorVersion);
+        }
+        
+        return osName;
+    }
+    
+    return "Unknown Windows Version";
+}
+
+// Get OS Version
+string GetOSVersion() {
+    OSVERSIONINFOEX osvi;
+    ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
+    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEX);
+
+    #pragma warning(suppress : 4996)
+    if (GetVersionEx((OSVERSIONINFO*)&osvi)) {
+        return to_string(osvi.dwMajorVersion) + "." 
+             + to_string(osvi.dwMinorVersion) + " (Build " 
+             + to_string(osvi.dwBuildNumber) + ")";
+    }
+    
+    return "Unknown";
+}
+
+// Get Hostname
+string GetHostname() {
+    char buffer[MAX_COMPUTERNAME_LENGTH + 1];
+    DWORD size = sizeof(buffer);
+    
+    if (GetComputerNameA(buffer, &size)) {
+        return string(buffer);
+    }
+    
+    return "Unknown";
+}
+
 #elif defined(__linux__)
-    
-    // This method will get CPU Name
-    string Processor::CPUName() {
-        return 0;
-    }
-    
-    // This method will get the CPU Stepping
-    int Processor::Stepping() {
-        return 0;
-    }
+// Linux Implementation (stubs)
 
-    // This method will get the CPU Model
-    int Processor::Model() {
-        return 0;
-    }
+string Processor::CPUName() { return "Not implemented for Linux"; }
+int Processor::Stepping() { return 0; }
+int Processor::Model() { return 0; }
+int Processor::Family() { return 0; }
+int Processor::Revision() { return 0; }
+string Processor::Architecture() { return "Not implemented for Linux"; }
+int Processor::MaxClockSpeed() { return 0; }
+double Processor::BaseClockSpeed(int maxFreq) { return 0; }
+int Processor::CoresCount(bool logical) { return 0; }
 
-    // This method will get the CPU Family
-    int Processor::Family() {
-        return 0;
-    }
-
-    // This method will get the CPU Archeticture string
-    string Processor::Architecture() {
-        return "";
-    }
-
-    // This method will get CPU base clock speed
-    double Processor::BaseClockSpeed(int MaxFreq, int multiplier = CPU_MULTIPLIER) {
-        return 0;
-    }
-
-    // This method will get the Maximum clock speed
-    int Processor::MaxClockSpeed() {
-        return 0;
-    }
-
-    // This method will get the number CPU Cores 
-    int Processor::CoresCount(bool logical = false) {
-        return 0;
-    }
-
-    // This method will get the OS name and version
-    string GetOSName() {
-        return 0;
-    }
+string GetOSName() { return "Linux"; }
+string GetOSVersion() { return "Not implemented for Linux"; }
+string GetHostname() { return "Not implemented for Linux"; }
 
 #elif defined(__APPLE__)
-        // This method will get CPU Name
-    string Processor::CPUName() {
-        return 0;
-    }
-    
-    // This method will get the CPU Stepping
-    int Processor::Stepping() {
-        return 0;
-    }
+// macOS Implementation (stubs)
 
-    // This method will get the CPU Model
-    int Processor::Model() {
-        return 0;
-    }
+string Processor::CPUName() { return "Not implemented for macOS"; }
+int Processor::Stepping() { return 0; }
+int Processor::Model() { return 0; }
+int Processor::Family() { return 0; }
+int Processor::Revision() { return 0; }
+string Processor::Architecture() { return "Not implemented for macOS"; }
+int Processor::MaxClockSpeed() { return 0; }
+double Processor::BaseClockSpeed(int maxFreq) { return 0; }
+int Processor::CoresCount(bool logical) { return 0; }
 
-    // This method will get the CPU Family
-    int Processor::Family() {
-        return 0;
-    }
+string GetOSName() { return "macOS"; }
+string GetOSVersion() { return "Not implemented for macOS"; }
+string GetHostname() { return "Not implemented for macOS"; }
 
-    // This method will get the CPU Archeticture string
-    string Processor::Architecture() {
-        return "";
-    }
-
-    // This method will get CPU base clock speed
-    double Processor::BaseClockSpeed(int MaxFreq, int multiplier = CPU_MULTIPLIER) {
-        return 0;
-    }
-
-    // This method will get the Maximum clock speed
-    int Processor::MaxClockSpeed() {
-        return 0;
-    }
-
-    // This method will get the number CPU Cores 
-    int Processor::CoresCount(bool logical = false) {
-        return 0;
-    }
-
-    // This method will get the OS name and version
-    string GetOSName() {
-        return 0;
-    }
-
-
-#else 
-    return "Sorry this is Unsupported platform";
-
+#else
+#error "Unsupported platform"
 #endif
 
-// This Function will Convert Mhz value to Ghz 
+// Convert MHz to GHz
 double MhzToGhz(int value) {
     return value / 1000.0;
 }
 
-int main() {
-    Processor cpu;
+// Print application header
+void PrintHeader() {
+    cout << "\n=============================================\n";
+    cout << "  CoreCheck v" << VERSION << "  |  by " << AUTHOR << "\n";
+    cout << "=============================================\n";
+}
 
-    string x;
-    // Print the software Command-Line interface
-    cout << "\n [ CoreCheck" << "   v" << VERSION << "]    Developd by " << AUTHOR << endl;
+// Print section separator
+void PrintSeparator() {
+    cout << "\n---------------------------------------------\n";
+}
 
-    // CPU SECTION
-    cout << "\n [CPU INFO] ===========================================\n\n";
-    // Get and Print CPU Informaions
-    cout  << cpu.CPUName() << endl;
-    cout << "\n Stepping : " << cpu.Stepping() << "\n Model : " << cpu.Model();
-    cout << "\n Family : " << cpu.Family() << "\n Architecture : " << cpu.Architecture();
-
-    // Set output precision for double values
-    cout << fixed << setprecision(1);
-    // Get the CPU max clock speed
+// Print CPU information
+void PrintCPUInfo(Processor& cpu) {
     int maxClockSpeed = cpu.MaxClockSpeed();
-    cout << "\n Base clock speed : " << cpu.BaseClockSpeed(maxClockSpeed) << "Mhz";
-    cout << "\n Maximum clock speed : " << MhzToGhz(maxClockSpeed) << " Ghz";
-    cout << "\n Cores : " << cpu.CoresCount() << "\n Threads : " << cpu.CoresCount(true); 
-     
-    // OS SECTION
-    cout << "\n\n [OS INFO] ========================================\n\n";
-    // Get the OS version
-    cout << "Operating System : " << GetOSName();
+    double baseClockSpeed = cpu.BaseClockSpeed(maxClockSpeed);
+    
+    cout << "\n[ CPU INFORMATION ]\n";
+    cout << "\n" << cpu.CPUName() << "\n";
+    
+    cout << "\n" << left << setw(20) << "Architecture" << ": " << cpu.Architecture();
+    cout << "\n" << left << setw(20) << "Family" << ": " << cpu.Family();
+    cout << "\n" << left << setw(20) << "Model" << ": " << cpu.Model();
+    cout << "\n" << left << setw(20) << "Stepping" << ": " << cpu.Stepping();
+    
+    cout << fixed << setprecision(2);
+    if (maxClockSpeed > 0) {
+        cout << "\n" << left << setw(20) << "Max Clock Speed" << ": " << MhzToGhz(maxClockSpeed) << " GHz";
+    }
+    
+    if (baseClockSpeed > 0) {
+        cout << "\n" << left << setw(20) << "Base Clock Speed" << ": " << baseClockSpeed << " MHz";
+    }
+    
+    cout << "\n" << left << setw(20) << "Physical Cores" << ": " << cpu.CoresCount();
+    cout << "\n" << left << setw(20) << "Logical Cores" << ": " << cpu.CoresCount(true);
+}
 
-    cin >> x;
-    return 0;
+// Print OS information
+void PrintOSInfo() {
+    cout << "\n[ OPERATING SYSTEM ]\n";
+    cout << "\n" << left << setw(20) << "Name" << ": " << GetOSName();
+    cout << "\n" << left << setw(20) << "Version" << ": " << GetOSVersion();
+    cout << "\n" << left << setw(20) << "Hostname" << ": " << GetHostname();
+}
+
+// Main function
+int main() {
+    try {
+
+        // Set terminal title
+        system("title CoreCheck - v1.1");
+
+
+        Processor cpu;
+        
+        PrintHeader();
+        PrintCPUInfo(cpu);
+        PrintSeparator();
+        PrintOSInfo();
+        PrintSeparator();
+        
+        cout << "\nPress Enter to exit...";
+        cin.get();
+        
+        return 0;
+    }
+    catch (const exception& e) {
+        cerr << "\nError: " << e.what() << endl;
+        return 1;
+    }
 }
